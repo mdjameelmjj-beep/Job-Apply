@@ -1,0 +1,6 @@
+{
+  "name": "ExecApply AI - Executive Job Search & Auto-Apply Engine",
+  "description": "Autonomous executive career copilot and application engine for Mohammed Jameel. Ingests, parses, and auto-applies to executive AI, analytics, and data leadership roles across Naukri, Indeed, Greenhouse, and Ashby.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
