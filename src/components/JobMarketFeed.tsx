@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
   Briefcase, 
   Search, 
@@ -21,7 +21,8 @@ import {
   ChevronDown,
   ChevronUp,
   FileText,
-  Layers
+  Layers,
+  ArrowRight
 } from 'lucide-react';
 import { JobPosting, JobCriteria, WorkType, ApplicationStatus, ResumeProfile } from '../types';
 import { NaukriConnectorModal } from './NaukriConnectorModal';
@@ -40,6 +41,8 @@ interface JobMarketFeedProps {
   evaluatingJobId: string | null;
   submittingJobId: string | null;
   onNavigateToPipeline?: () => void;
+  onNavigateToTracker?: () => void;
+  onFetchNaukriIndeed40Days?: () => void;
 }
 
 export const JobMarketFeed: React.FC<JobMarketFeedProps> = ({
@@ -55,12 +58,17 @@ export const JobMarketFeed: React.FC<JobMarketFeedProps> = ({
   evaluatingJobId,
   submittingJobId,
   onNavigateToPipeline,
+  onNavigateToTracker,
+  onFetchNaukriIndeed40Days,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedWorkType, setSelectedWorkType] = useState<string>('all');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [selectedPlatform, setSelectedPlatform] = useState<string>('all');
   const [selectedRegion, setSelectedRegion] = useState<string>('all');
+  const [selectedAge, setSelectedAge] = useState<'all' | '40d' | 'recent'>('all');
+  const [isFetching40d, setIsFetching40d] = useState(false);
+  const [show40dSuccessBanner, setShow40dSuccessBanner] = useState(false);
   const [currencyMode, setCurrencyMode] = useState<'USD' | 'INR'>('USD');
   const [copiedJobId, setCopiedJobId] = useState<string | null>(null);
   const [expandedScreenersJobId, setExpandedScreenersJobId] = useState<string | null>(null);
@@ -82,6 +90,9 @@ export const JobMarketFeed: React.FC<JobMarketFeedProps> = ({
   // Helper to generate live external job search link
   const getOriginalJobUrl = (job: JobPosting) => {
     if (job.sourceUrl && job.sourceUrl.startsWith('http')) return job.sourceUrl;
+    if (job.company.toLowerCase().includes('google')) {
+      return `https://www.google.com/about/careers/applications/jobs/results?q=${encodeURIComponent(job.title)}`;
+    }
     if (job.atsPlatform === 'Naukri') {
       return `https://www.naukri.com/${encodeURIComponent(job.title.toLowerCase().replace(/[^a-z0-9]+/g, '-'))}-jobs-in-india`;
     }
@@ -155,34 +166,88 @@ ${questionsAndAnswers}
     return `$${min.toLocaleString()} - $${max.toLocaleString()} / yr`;
   };
 
-  // Filter logic
-  const filteredJobs = jobs.filter((job) => {
-    const matchesSearch =
-      job.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      job.company.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      job.location.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      job.description.toLowerCase().includes(searchQuery.toLowerCase());
+  // Active unapplied jobs for the feed (applied jobs are strictly excluded and tracked in Applications Tracker)
+  const activeUnappliedJobs = useMemo(
+    () => jobs.filter((job) => job.status !== 'applied'),
+    [jobs]
+  );
+  const appliedCount = useMemo(
+    () => jobs.filter((job) => job.status === 'applied').length,
+    [jobs]
+  );
 
-    const matchesWorkType =
-      selectedWorkType === 'all' || job.workType.toLowerCase() === selectedWorkType.toLowerCase();
+  const count40d = useMemo(
+    () => activeUnappliedJobs.filter((job) => job.postedDate.toLowerCase().includes('40 day')).length,
+    [activeUnappliedJobs]
+  );
 
-    const matchesStatus =
-      selectedStatus === 'all' ||
-      (selectedStatus === 'applied' && job.status === 'applied') ||
-      (selectedStatus === 'unprocessed' && (job.status === 'unprocessed' || job.status === 'ready_to_apply')) ||
-      (selectedStatus === 'skipped' && job.status === 'skipped');
+  const handleFetch40dNaukriIndeed = () => {
+    setIsFetching40d(true);
+    if (onFetchNaukriIndeed40Days) {
+      onFetchNaukriIndeed40Days();
+    }
+    setTimeout(() => {
+      setIsFetching40d(false);
+      setShow40dSuccessBanner(true);
+      setSelectedAge('40d');
+      setSelectedPlatform('all');
+    }, 600);
+  };
 
-    const matchesPlatform =
-      selectedPlatform === 'all' || job.atsPlatform.toLowerCase() === selectedPlatform.toLowerCase();
+  // Filter logic: ALWAYS EXCLUDE applied jobs from the job feed
+  const filteredJobs = useMemo(() => {
+    return activeUnappliedJobs.filter((job) => {
+      const matchesSearch =
+        job.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        job.company.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        job.location.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        job.description.toLowerCase().includes(searchQuery.toLowerCase());
 
-    const matchesRegion =
-      selectedRegion === 'all' ||
-      (selectedRegion === 'India' && (job.location.toLowerCase().includes('india') || job.location.toLowerCase().includes('chennai') || job.location.toLowerCase().includes('bengaluru'))) ||
-      (selectedRegion === 'UAE' && (job.location.toLowerCase().includes('dubai') || job.location.toLowerCase().includes('uae') || job.location.toLowerCase().includes('mena'))) ||
-      (selectedRegion === 'Remote' && (job.workType === 'Remote' || job.location.toLowerCase().includes('remote')));
+      const matchesWorkType =
+        selectedWorkType === 'all' || job.workType.toLowerCase() === selectedWorkType.toLowerCase();
 
-    return matchesSearch && matchesWorkType && matchesStatus && matchesPlatform && matchesRegion;
-  });
+      const matchesStatus =
+        selectedStatus === 'all' ||
+        (selectedStatus === 'ready_to_apply' && job.status === 'ready_to_apply') ||
+        (selectedStatus === 'unprocessed' && job.status === 'unprocessed') ||
+        (selectedStatus === 'skipped' && job.status === 'skipped');
+
+      const matchesPlatform =
+        selectedPlatform === 'all' ||
+        (selectedPlatform === 'Google' && (job.company.toLowerCase().includes('google') || job.sourceUrl?.includes('google'))) ||
+        job.atsPlatform.toLowerCase() === selectedPlatform.toLowerCase();
+
+      const matchesAge =
+        selectedAge === 'all' ||
+        (selectedAge === '40d' && job.postedDate.toLowerCase().includes('40 day')) ||
+        (selectedAge === 'recent' && !job.postedDate.toLowerCase().includes('40 day'));
+
+      const matchesRegion =
+        selectedRegion === 'all' ||
+        (selectedRegion === 'India' &&
+          (job.location.toLowerCase().includes('india') ||
+            job.location.toLowerCase().includes('chennai') ||
+            job.location.toLowerCase().includes('bengaluru') ||
+            job.location.toLowerCase().includes('hyderabad'))) ||
+        ((selectedRegion === 'UAE' || selectedRegion === 'Dubai') &&
+          (job.location.toLowerCase().includes('dubai') ||
+            job.location.toLowerCase().includes('uae') ||
+            job.location.toLowerCase().includes('mena'))) ||
+        (selectedRegion === 'US' &&
+          (job.location.toLowerCase().includes('united states') ||
+            job.location.toLowerCase().includes('mountain view') ||
+            job.location.toLowerCase().includes('sunnyvale') ||
+            job.location.toLowerCase().includes('new york') ||
+            job.location.toLowerCase().includes('california') ||
+            job.location.toLowerCase().includes(', ca') ||
+            job.location.toLowerCase().includes(', ny') ||
+            job.location.toLowerCase().includes('us remote') ||
+            job.location.toLowerCase().includes('us '))) ||
+        (selectedRegion === 'Remote' && (job.workType === 'Remote' || job.location.toLowerCase().includes('remote')));
+
+      return matchesSearch && matchesWorkType && matchesStatus && matchesPlatform && matchesRegion && matchesAge;
+    });
+  }, [activeUnappliedJobs, searchQuery, selectedWorkType, selectedStatus, selectedPlatform, selectedRegion, selectedAge]);
 
   const handleCustomJobSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -234,6 +299,18 @@ ${questionsAndAnswers}
 
           {/* Action Buttons */}
           <div className="flex flex-wrap items-center gap-2.5">
+            <button
+              id="btn-fetch-40d-naukri-indeed"
+              type="button"
+              onClick={handleFetch40dNaukriIndeed}
+              disabled={isFetching40d}
+              className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl text-xs font-semibold bg-cyan-950/50 hover:bg-cyan-900/60 text-cyan-300 border border-cyan-700/60 transition-all shadow-sm"
+              title="Fetch and display 40-day-old relevant listings from Naukri and Indeed"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 text-cyan-400 ${isFetching40d ? 'animate-spin' : ''}`} />
+              <span>Fetch 40d Naukri &amp; Indeed ({count40d})</span>
+            </button>
+
             <button
               id="btn-indeed-modal"
               onClick={() => setIsIndeedModalOpen(true)}
@@ -343,10 +420,35 @@ ${questionsAndAnswers}
                 onChange={(e) => setSelectedStatus(e.target.value)}
                 className="bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-300 focus:outline-none focus:border-indigo-500"
               >
-                <option value="all">All Statuses ({jobs.length})</option>
-                <option value="unprocessed">In Queue / Unprocessed</option>
-                <option value="applied">Auto-Applied</option>
-                <option value="skipped">Skipped</option>
+                <option value="all">Active Feed Openings ({activeUnappliedJobs.length})</option>
+                <option value="ready_to_apply">
+                  Ready to Apply ({activeUnappliedJobs.filter((j) => j.status === 'ready_to_apply').length})
+                </option>
+                <option value="unprocessed">
+                  In Queue / Unprocessed ({activeUnappliedJobs.filter((j) => j.status === 'unprocessed').length})
+                </option>
+                <option value="skipped">
+                  Skipped ({activeUnappliedJobs.filter((j) => j.status === 'skipped').length})
+                </option>
+              </select>
+
+              {/* Posting Age Filter */}
+              <select
+                value={selectedAge}
+                onChange={(e) => setSelectedAge(e.target.value as 'all' | '40d' | 'recent')}
+                className={`border rounded-xl px-3 py-2 text-xs focus:outline-none transition-all ${
+                  selectedAge === '40d'
+                    ? 'bg-cyan-950/80 border-cyan-700 text-cyan-200 font-semibold'
+                    : 'bg-slate-950 border-slate-800 text-slate-300 focus:border-indigo-500'
+                }`}
+              >
+                <option value="all">All Posting Dates ({activeUnappliedJobs.length})</option>
+                <option value="40d">
+                  ⏳ 40-Day-Old Openings ({count40d})
+                </option>
+                <option value="recent">
+                  ⚡ Recent / Fresh ({activeUnappliedJobs.length - count40d})
+                </option>
               </select>
             </div>
           </div>
@@ -356,20 +458,36 @@ ${questionsAndAnswers}
             {/* Platform pills */}
             <div className="flex flex-wrap items-center gap-1.5">
               <span className="text-slate-500 text-[11px] font-medium mr-1">Portal:</span>
-              {(['all', 'Naukri', 'Indeed', 'Greenhouse', 'Ashby', 'Lever'] as const).map((plat) => (
-                <button
-                  key={plat}
-                  type="button"
-                  onClick={() => setSelectedPlatform(plat)}
-                  className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
-                    selectedPlatform === plat
-                      ? 'bg-indigo-600 text-white shadow-sm'
-                      : 'bg-slate-950/70 border border-slate-800 text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
-                  }`}
-                >
-                  {plat === 'all' ? `All Portals (${jobs.length})` : plat === 'Naukri' ? '🇮🇳 Naukri' : plat === 'Indeed' ? '💼 Indeed' : plat}
-                </button>
-              ))}
+              {(['all', 'Google', 'Naukri', 'Indeed', 'Greenhouse', 'Ashby', 'Lever'] as const).map((plat) => {
+                const count = plat === 'all' 
+                  ? activeUnappliedJobs.length
+                  : plat === 'Google'
+                  ? activeUnappliedJobs.filter((j) => j.company.toLowerCase().includes('google') || j.sourceUrl?.includes('google')).length
+                  : activeUnappliedJobs.filter((j) => j.atsPlatform.toLowerCase() === plat.toLowerCase()).length;
+
+                return (
+                  <button
+                    key={plat}
+                    type="button"
+                    onClick={() => setSelectedPlatform(plat)}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
+                      selectedPlatform === plat
+                        ? 'bg-indigo-600 text-white shadow-sm'
+                        : 'bg-slate-950/70 border border-slate-800 text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+                    }`}
+                  >
+                    {plat === 'all' 
+                      ? `All Openings (${count})` 
+                      : plat === 'Google' 
+                      ? `🌐 Google Careers (${count})` 
+                      : plat === 'Naukri' 
+                      ? `🇮🇳 Naukri (${count})` 
+                      : plat === 'Indeed' 
+                      ? `💼 Indeed (${count})` 
+                      : `${plat} (${count})`}
+                  </button>
+                );
+              })}
             </div>
 
             {/* Region pills */}
@@ -377,8 +495,9 @@ ${questionsAndAnswers}
               <span className="text-slate-500 text-[11px] font-medium mr-1">Region:</span>
               {[
                 { id: 'all', label: 'Global / All' },
+                { id: 'Dubai', label: '🇦🇪 Dubai / UAE' },
                 { id: 'India', label: '🇮🇳 India (Chennai/BLR)' },
-                { id: 'UAE', label: '🇦🇪 Dubai / UAE' },
+                { id: 'US', label: '🇺🇸 United States' },
                 { id: 'Remote', label: '🌐 Remote' },
               ].map((reg) => (
                 <button
@@ -398,6 +517,79 @@ ${questionsAndAnswers}
           </div>
         </div>
       </div>
+
+      {/* Applied Roles Excluded Notice Banner */}
+      {appliedCount > 0 && (
+        <div className="bg-emerald-950/20 border border-emerald-800/40 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center shrink-0 border border-emerald-500/20 font-bold">
+              <CheckCircle2 className="w-4 h-4" />
+            </div>
+            <div>
+              <div className="font-bold text-emerald-300 flex items-center gap-2">
+                <span>{appliedCount} Applied Positions Excluded from Job Feed</span>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-semibold border border-emerald-500/30">
+                  Application Tracker Only
+                </span>
+              </div>
+              <p className="text-slate-400 text-xs mt-0.5">
+                All submitted roles (including your Google executive submissions) are cleanly archived in the Application Tracker with tailored cover letters, screening Q&amp;As, and confirmation IDs.
+              </p>
+            </div>
+          </div>
+          {onNavigateToTracker && (
+            <button
+              type="button"
+              onClick={onNavigateToTracker}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/40 text-emerald-300 font-semibold transition-all shrink-0 text-xs self-start sm:self-auto shadow-sm"
+            >
+              <span>View Applied Tracker ({appliedCount})</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* 40-Day-Old Naukri & Indeed Loaded Banner */}
+      {(show40dSuccessBanner || selectedAge === '40d') && (
+        <div className="bg-cyan-950/30 border border-cyan-700/50 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-xl bg-cyan-500/10 text-cyan-400 flex items-center justify-center shrink-0 border border-cyan-500/30 font-bold">
+              <RefreshCw className="w-4 h-4" />
+            </div>
+            <div>
+              <div className="font-bold text-cyan-300 flex items-center gap-2">
+                <span>{count40d} Relevant Openings Loaded from Naukri &amp; Indeed (~40 Days Old)</span>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 font-semibold border border-cyan-500/30">
+                  July 27, 2026 Vintage
+                </span>
+              </div>
+              <p className="text-slate-400 text-xs mt-0.5">
+                Targeted executive openings matching your AGI Governance, Enterprise FP&amp;A, and Healthcare BI criteria across Naukri.com, Naukri Gulf, and Indeed Apply.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0 self-start sm:self-auto">
+            {selectedAge === '40d' ? (
+              <button
+                type="button"
+                onClick={() => setSelectedAge('all')}
+                className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 text-xs font-medium transition-all"
+              >
+                Show All Dates
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setSelectedAge('40d')}
+                className="px-3 py-1.5 rounded-lg bg-cyan-600/30 hover:bg-cyan-600/50 text-cyan-200 border border-cyan-500/40 text-xs font-semibold transition-all"
+              >
+                Filter to 40d Only
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Jobs Grid */}
       <div className="space-y-4">
@@ -422,6 +614,7 @@ ${questionsAndAnswers}
             const isSubmitting = submittingJobId === job.id;
             const hasApplied = job.status === 'applied';
             const hasSkipped = job.status === 'skipped';
+            const is40DaysOld = job.postedDate.toLowerCase().includes('40 day');
             const evaluation = job.evaluation;
 
             return (
@@ -432,6 +625,8 @@ ${questionsAndAnswers}
                     ? 'border-emerald-500/40 bg-slate-900/90'
                     : hasSkipped
                     ? 'border-slate-800/80 opacity-75'
+                    : is40DaysOld
+                    ? 'border-cyan-900/60 hover:border-cyan-700/80 bg-slate-900/95'
                     : 'border-slate-800 hover:border-slate-700'
                 }`}
               >
@@ -454,6 +649,13 @@ ${questionsAndAnswers}
                       }`}>
                         {job.atsPlatform} {job.atsPlatform === 'Naukri' || job.atsPlatform === 'Indeed' ? 'Portal' : 'ATS'}
                       </span>
+
+                      {/* 40-Day Vintage Badge */}
+                      {is40DaysOld && (
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-cyan-950/80 text-cyan-300 border border-cyan-700/70 font-medium">
+                          ⏳ 40d Vintage (July 2026)
+                        </span>
+                      )}
 
                       {/* Status Badges */}
                       {hasApplied && (

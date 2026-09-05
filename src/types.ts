@@ -161,30 +161,8 @@ export interface ImportScheduleConfig {
   frequency: 'every_6h' | 'daily_morning' | 'twice_daily';
   scheduledTime: string;
   minScoreThreshold: number;
-  maxDaysOld: number; // e.g. 1 (24h / 1 day), 2, 3, 7, 14, 30
   deduplicateAcrossPortals: boolean;
   autoInjectToPipeline: boolean;
   lastRunTimestamp?: string;
   nextRunCountdown?: string;
-}
-
-export interface DiscoveredJobItem {
-  id: string;
-  title: string;
-  company: string;
-  location: string;
-  workType: 'Remote' | 'Hybrid' | 'On-site';
-  salaryMin: number;
-  salaryMax: number;
-  postedDaysAgo: number;
-  postedDateStr: string;
-  sourceUrl: string;
-  portal: string;
-  atsPlatform: ATSPlatform;
-  description: string;
-  requirements: string[];
-  responsibilities?: string[];
-  screeningQuestions: string[];
-  matchScore: number;
-  injectedToQueue?: boolean;
 }

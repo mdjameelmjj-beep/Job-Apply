@@ -217,7 +217,7 @@ export const ApplicationsHistory: React.FC<ApplicationsHistoryProps> = ({
           <div className="bg-slate-950/60 p-3 rounded-xl border border-slate-800/80">
             <span className="text-slate-400 block text-[11px]">Active Portals</span>
             <span className="text-xs font-bold text-slate-200 font-mono mt-1 block truncate">
-              Naukri, Indeed, Greenhouse, Lever
+              Workday, Naukri, Indeed, Greenhouse
             </span>
           </div>
         </div>

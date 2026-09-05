@@ -9,13 +9,14 @@ import {
   CheckCircle2, 
   Flame, 
   Sparkles,
-  DownloadCloud
+  DownloadCloud,
+  FolderSync
 } from 'lucide-react';
 import { JobCriteria, PipelineStats } from '../types';
 
 interface NavbarProps {
-  activeTab: 'pipeline' | 'resume' | 'criteria' | 'jobs' | 'applied' | 'import';
-  setActiveTab: (tab: 'pipeline' | 'resume' | 'criteria' | 'jobs' | 'applied' | 'import') => void;
+  activeTab: 'pipeline' | 'resume' | 'criteria' | 'jobs' | 'applied' | 'import' | 'workspace';
+  setActiveTab: (tab: 'pipeline' | 'resume' | 'criteria' | 'jobs' | 'applied' | 'import' | 'workspace') => void;
   isBotRunning: boolean;
   onToggleBot: () => void;
   stats: PipelineStats;
@@ -66,8 +67,8 @@ export const Navbar: React.FC<NavbarProps> = ({
             >
               <Briefcase className="w-4 h-4 text-indigo-400" />
               <span>Job Feed</span>
-              <span className="text-[11px] bg-slate-800/90 text-slate-300 px-1.5 py-0.5 rounded font-mono">
-                {stats.totalJobsScanned}
+              <span className="text-[11px] bg-slate-800/90 text-slate-300 px-1.5 py-0.5 rounded font-mono" title={`${stats.totalJobsScanned - stats.autoAppliedCount} open listings (${stats.autoAppliedCount} applied)`}>
+                {stats.totalJobsScanned - stats.autoAppliedCount}
               </span>
             </button>
 
@@ -150,6 +151,19 @@ export const Navbar: React.FC<NavbarProps> = ({
                 {criteria.minMatchScore}%+
               </span>
             </button>
+
+            <button
+              id="nav-tab-workspace"
+              onClick={() => setActiveTab('workspace')}
+              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-medium transition-all ${
+                activeTab === 'workspace'
+                  ? 'bg-blue-600/20 text-blue-300 border border-blue-500/30 shadow-sm'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/50'
+              }`}
+            >
+              <FolderSync className="w-4 h-4 text-blue-400" />
+              <span>Drive & Gmail</span>
+            </button>
           </nav>
 
           {/* Bot State & Controls */}
@@ -196,7 +210,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               activeTab === 'jobs' ? 'bg-slate-800 text-white' : 'text-slate-400'
             }`}
           >
-            Jobs ({stats.totalJobsScanned})
+            Jobs ({stats.totalJobsScanned - stats.autoAppliedCount})
           </button>
           <button
             onClick={() => setActiveTab('import')}
@@ -238,6 +252,15 @@ export const Navbar: React.FC<NavbarProps> = ({
             }`}
           >
             Rules
+          </button>
+          <button
+            onClick={() => setActiveTab('workspace')}
+            className={`px-3 py-1.5 rounded-lg font-medium whitespace-nowrap flex items-center gap-1 ${
+              activeTab === 'workspace' ? 'bg-blue-600/20 text-blue-300 font-bold' : 'text-slate-400'
+            }`}
+          >
+            <FolderSync className="w-3.5 h-3.5" />
+            <span>Drive & Gmail</span>
           </button>
         </div>
       </div>

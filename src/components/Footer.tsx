@@ -4,7 +4,7 @@ import { ResumeProfile } from '../types';
 
 interface FooterProps {
   profile: ResumeProfile;
-  onNavigate: (tab: 'pipeline' | 'resume' | 'criteria' | 'jobs' | 'applied' | 'import') => void;
+  onNavigate: (tab: 'pipeline' | 'resume' | 'criteria' | 'jobs' | 'applied' | 'import' | 'workspace') => void;
 }
 
 export const Footer: React.FC<FooterProps> = ({ profile, onNavigate }) => {
@@ -100,6 +100,14 @@ export const Footer: React.FC<FooterProps> = ({ profile, onNavigate }) => {
                   className="hover:text-white transition-colors"
                 >
                   Compensation & Targeting Rules
+                </button>
+              </li>
+              <li>
+                <button 
+                  onClick={() => onNavigate('workspace')} 
+                  className="hover:text-white transition-colors flex items-center gap-1 text-blue-400"
+                >
+                  Google Drive & Gmail Hub
                 </button>
               </li>
             </ul>

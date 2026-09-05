@@ -650,6 +650,15 @@ export const ImportManager: React.FC<ImportManagerProps> = ({
             <button
               type="button"
               onClick={() =>
+                setDirectUrlInput('https://www.google.com/about/careers/applications/jobs/results/director-ai-governance-google-cloud')
+              }
+              className="px-2.5 py-1 rounded-lg bg-indigo-950/60 hover:bg-indigo-900/60 text-indigo-300 hover:text-white border border-indigo-700/60 text-[11px] transition-colors"
+            >
+              🌐 Google Cloud AI Governance
+            </button>
+            <button
+              type="button"
+              onClick={() =>
                 setDirectUrlInput('https://www.naukri.com/job-listings-director-ai-governance-chennai-49120')
               }
               className="px-2.5 py-1 rounded-lg bg-slate-800/80 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-700/60 text-[11px] transition-colors"

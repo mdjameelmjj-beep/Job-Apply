@@ -12,7 +12,8 @@ import {
   Calendar, 
   ShieldCheck, 
   AlertCircle,
-  HelpCircle
+  HelpCircle,
+  Mail
 } from 'lucide-react';
 import { JobPosting, JobCriteria, ResumeProfile } from '../types';
 
@@ -22,6 +23,7 @@ interface ApplicationModalProps {
   onApply: (job: JobPosting) => Promise<void>;
   criteria: JobCriteria;
   isSubmitting: boolean;
+  profile?: ResumeProfile;
 }
 
 export const ApplicationModal: React.FC<ApplicationModalProps> = ({
@@ -30,6 +32,7 @@ export const ApplicationModal: React.FC<ApplicationModalProps> = ({
   onApply,
   criteria,
   isSubmitting,
+  profile,
 }) => {
   const [copiedLetter, setCopiedLetter] = useState(false);
   const [activeTab, setActiveTab] = useState<'submission' | 'job_desc' | 'match_report'>('submission');
@@ -156,6 +159,33 @@ export const ApplicationModal: React.FC<ApplicationModalProps> = ({
                   Applied: {job.submission?.timestamp ? new Date(job.submission.timestamp).toLocaleString() : 'Just now'}
                 </div>
               </div>
+
+              {/* Applicant Transmission Details */}
+              {profile && (
+                <div className="bg-slate-950/70 border border-slate-800/80 rounded-xl p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-sky-500/10 text-sky-400 font-bold flex items-center justify-center border border-sky-500/20 text-xs">
+                      MJ
+                    </div>
+                    <div>
+                      <div className="font-semibold text-white flex items-center gap-2">
+                        <span>{profile.fullName}</span>
+                        <span className="text-[10px] px-2 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700">Applicant Identity</span>
+                      </div>
+                      <div className="text-slate-400 text-[11px]">{profile.title}</div>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-3 text-slate-300 text-xs sm:border-l sm:border-slate-800 sm:pl-4">
+                    <div className="flex items-center gap-1.5 text-sky-400 font-mono bg-sky-950/40 px-2.5 py-1 rounded-lg border border-sky-900/60">
+                      <Mail className="w-3.5 h-3.5 text-sky-400" />
+                      <span>{profile.email}</span>
+                    </div>
+                    <div className="text-slate-400 font-mono text-[11px]">
+                      {profile.phone}
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Tailored Cover Letter */}
               <div className="space-y-2">
